@@ -1,0 +1,21 @@
+{
+  "name": "sunvoy-task",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@types/node": "^22.15.30",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.10.0"
+  }
+}
