@@ -2,7 +2,23 @@ import * as fs from "fs";
 import puppeteer from "puppeteer";
 import crypto from "crypto";
 
-let cookies: string | null;
+let cookies: string | null = null;
+
+async function saveCookies(page: puppeteer.Page){
+    const pageCookies = await page.cookies();
+    fs.writeFileSync("cookies.json", JSON.stringify(pageCookies, null, 2));
+}
+
+async function loadCookies() {
+    if (fs.existsSync("cookies.json")) {
+        const cookiesData = fs.readFileSync("cookies.json", "utf-8");
+        if (cookiesData) {
+            const parsedCookies: puppeteer.Protocol.Network.Cookie[] = JSON.parse(cookiesData);
+            return parsedCookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+        }
+    }
+    return null;
+}
 
 function createSignedRequest(params: Record<string, string>) {
     const timestamp = Math.floor(Date.now() / 1e3).toString();
@@ -34,23 +50,21 @@ async function login() {
             waitUntil: "networkidle2",
         });
 
-        // Fill in the login form
+        
         await page.type('input[name="username"]', "demo@example.org");
         await page.type('input[name="password"]', "test");
-
 
         await Promise.all([
             page.click('button[type="submit"]'),
             page.waitForNavigation({ waitUntil: "networkidle2" }),
         ]);
 
-
-        const pageCookies = await page.cookies();
-        cookies = pageCookies
-            .map((cookie) => `${cookie.name}=${cookie.value}`)
-            .join("; ");
+        saveCookies(page);
 
         console.log("Login Successful");
+        
+        const pageCookies = await page.cookies();
+        cookies = pageCookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
         console.log("Cookies:", cookies);
 
         await browser.close();
@@ -61,25 +75,21 @@ async function login() {
 
 async function getUsers() {
     try {
-        const usersResponse = await fetch("https://challenge.sunvoy.com/api/users",
-            {
-                method: "POST",
-                headers: {
-                    "Accept": "*/*",
-                    "Origin": "https://challenge.sunvoy.com",
-                    "Referer": "https://challenge.sunvoy.com/list",
-                    "User-Agent":
-                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
-                    Cookie: cookies ?? "",
-                },
+        const usersResponse = await fetch("https://challenge.sunvoy.com/api/users", {
+            method: "POST",
+            headers: {
+                "Accept": "*/*",
+                "Origin": "https://challenge.sunvoy.com",
+                "Referer": "https://challenge.sunvoy.com/list",
+                "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
+                Cookie: cookies ?? "",
             },
-        );
+        });
 
         const users = await usersResponse.json();
-
         fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
     } catch (error) {
-        console.error("Error: Error fetching users");
+        console.error("Error: Error fetching users", error);
     }
 }
 
@@ -91,7 +101,7 @@ async function getCurrentUser() {
             language: "en_US",
             openId: "openid456",
             operateId: "op789",
-            userId: "88619348-dbd9-4334-9290-241a7f17dd31"
+            userId: "0000f32e-f62b-4f04-9ccf-fc0b8d32a033"
         };
 
         const { fullPayload } = createSignedRequest(params);
@@ -128,7 +138,11 @@ async function getCurrentUser() {
 }
 
 async function start() {
-    await login();
+    cookies = await loadCookies();
+    if (!cookies) {
+        await login();
+        cookies = await loadCookies();
+    }
     await getUsers();
     await getCurrentUser();
 }
